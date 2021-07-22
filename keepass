@@ -1,0 +1,52 @@
+from pykeepass import PyKeePass
+from pykeepass.exceptions import CredentialsError
+import pyperclip
+import argparse
+import getpass
+import signal
+import sys
+import os
+
+
+def cleanup(x, y):
+  print()
+  sys.exit(0)
+
+signal.signal(signal.SIGINT, cleanup)
+
+DB = os.getenv('KEEPASSDB')
+
+def main(args, kp=None):
+  failures = 0
+  while failures < 3:
+    if os.getenv('KEEPASSPW'):
+      pw = os.getenv('KEEPASSPW')
+    else:
+      pw = getpass.getpass('{} password: '.format(DB))
+    try:
+      kp = PyKeePass(DB, pw)
+      break
+    except CredentialsError:
+      failures += 1
+
+  if args.g:
+    entry = get(kp, args.g)
+    if entry:
+      pyperclip.copy(entry.password)
+      print('{} copied to clipboard'.format(entry))
+
+
+def get(kp, s):
+  entries = kp.find_entries(title='.*{}.*'.format(s), regex=True)
+  if entries:
+    return entries[0]
+  else:
+    return None
+    
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser(description='Keepass python wrapper')
+  parser.add_argument('-g', metavar='ENTRY', type=str, help='get ENTRY password')
+  
+  args = parser.parse_args()
+  main(args)
+
